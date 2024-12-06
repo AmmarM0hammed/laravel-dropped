@@ -12,19 +12,55 @@ class MapController extends Controller
 {
     public function index()
     {
-        $maps = Map::all();
+        // Get the authenticated user
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['message' => 'User not authenticated'], 401);
+        }
+
+        // Retrieve all maps and check if the user has visited each map
+        $maps = Map::all()->map(function ($map) use ($user) {
+            // Check if the user has points associated with this map
+            $isVisit = DB::table('user_points')
+                ->where('user_id', $user->id)
+                ->where('map_id', $map->id)
+                ->exists();
+
+            // Add the `isVisit` attribute to the map
+            $map->isVisit = $isVisit;
+            return $map;
+        });
 
         return response()->json($maps);
     }
+
     public function show($id)
     {
+        // Get the authenticated user
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['message' => 'User not authenticated'], 401);
+        }
+
+        // Check if the map exists
         $map = Map::find($id);
 
         if (!$map) {
             return response()->json(['message' => 'Map not found'], 404);
         }
 
-        return response()->json($map);
+        // Check if the user has points associated with this map
+        $isVisit = DB::table('user_points')
+            ->where('user_id', $user->id)
+            ->where('map_id', $id)
+            ->exists();
+
+        return response()->json([
+            'map' => $map,
+            'isVisit' => $isVisit,
+        ]);
     }
 
     public function update(Request $request, $id)
@@ -97,7 +133,7 @@ class MapController extends Controller
         $map = Map::create([
             'title' => $validated['title'],
             'description' => $validated['description'],
-            'image' => "storage/".$imagePath,  // Save the image path
+            'image' => "storage/" . $imagePath,  // Save the image path
             'link' => $validated['link'],
             'latitude' => $validated['latitude'],
             'longitude' => $validated['longitude'],
@@ -109,21 +145,38 @@ class MapController extends Controller
 
     public function incrementUserPoints(Request $request)
     {
-        // Assuming the user is authenticated, you can access the authenticated user like this
+        // Assuming the user is authenticated
         $user = Auth::user();
-
 
         // Check if the user exists
         if (!$user) {
             return response()->json(['message' => 'User not found'], 404);
         }
 
+        // Validate the map_id from the request
+        $validated = $request->validate([
+            'map_id' => 'required|exists:maps,id', // Ensure map_id exists in the maps table
+        ]);
+
+        $mapId = $validated['map_id'];
+
         // Increment the user's points by 1
         DB::table('users')
             ->where('id', $user->id)
             ->increment('point', 1);
 
+        // Add an entry to the user_points table
+        DB::table('user_points')->insert([
+            'user_id' => $user->id,
+            'map_id' => $mapId,
+        ]);
 
-        return response()->json(['message' => 'Points increased successfully', 'points' => $user->point]);
+        // Return the updated points
+        $updatedPoints = DB::table('users')->where('id', $user->id)->value('point');
+
+        return response()->json([
+            'message' => 'Points increased successfully',
+            'points' => $updatedPoints,
+        ]);
     }
 }

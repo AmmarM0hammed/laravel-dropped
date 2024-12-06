@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\MapController;
+use App\Http\Controllers\Api\StoreController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -23,4 +24,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     Route::post('/incrementUserPoints', [MapController::class, 'incrementUserPoints']);
+
+
+    Route::get('/stores', [StoreController::class, 'index']);
+    Route::post('/stores', [StoreController::class, 'store']);
+    Route::delete('/stores/{storeId}', [StoreController::class, 'destroy']);
+
+    Route::post('/pay/{storeId}', [StoreController::class, 'pay']);
+
+    Route::get('/user/coupons', [StoreController::class, 'getCoupons']);
+
+
 });
